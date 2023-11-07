@@ -19,6 +19,29 @@ struct OscillationParameters{T}
     end
 end
 
+
+struct NonunitaryOscillationParameters{T}
+"""
+    This struct defines the matrix elements of the neutrino mixing matrix directly
+    rather than parametrizing it via a product of 3 rotation matrices.
+
+"""
+    unitary_matrix_elements::Array{Float64, 2}
+    alphas::Array{Float64, 2}
+    mass_squared_diff::SparseMatrixCSC{T,<:Integer}
+    cp_phases::SparseMatrixCSC{T,<:Integer}
+    dim::Int64
+    NonunitaryOscillationParameters(dim::Int64) = begin
+        new{ComplexF64}(
+                zeros.(Float64, dim, dim),
+                zeros.(Float64, dim, dim),
+                spzeros(dim, dim),
+                spzeros(dim, dim),
+                dim)
+    end
+end
+
+
 function _generate_ordered_index_pairs(n::Integer)
     indices = Vector{Pair{Int64,Int64}}(undef, mixingangles(n))
     a = 1
@@ -70,25 +93,25 @@ end
 
 const setθ! = mixingangle!
 
-function _mass_matrix_fully_determined(osc::OscillationParameters)
+function _mass_matrix_fully_determined(osc::Union{OscillationParameters, NonunitaryOscillationParameters})
     I, J, _ = findnz(osc.mass_squared_diff)
     set_elements = collect(zip(I, J))
     indices = Set([first.(set_elements)..., last.(set_elements)...])
     (length(indices) >= osc.dim) & (length(set_elements) >= (osc.dim - 1))  
 end
 
-function _mass_matrix_overdetermined(osc::OscillationParameters)
+function _mass_matrix_overdetermined(osc::Union{OscillationParameters, NonunitaryOscillationParameters})
     I, J, _ = findnz(osc.mass_squared_diff)
     set_elements = collect(zip(I, J))
     indices = Set([first.(set_elements)..., last.(set_elements)...])
     length(set_elements) >= length(indices) 
 end
 
-function Base.isvalid(osc::OscillationParameters)
+function Base.isvalid(osc::Union{OscillationParameters, NonunitaryOscillationParameters})
     return _mass_matrix_fully_determined(osc)
 end
 
-function _completed_mass_matrix(osc::OscillationParameters)
+function _completed_mass_matrix(osc::Union{OscillationParameters, NonunitaryOscillationParameters})
     tmp = Matrix(osc.mass_squared_diff)
     tmp = tmp - transpose(tmp)
     if _mass_matrix_fully_determined(osc)
@@ -119,7 +142,7 @@ Set a mass squared difference of an oscillation parameters struct
 - `value` The value which should be applied to the oscillation parameters
 
 """
-function masssquareddiff!(osc::OscillationParameters, indices::Pair{T, T}, value::S) where {T <: Integer, S <: Number}
+function masssquareddiff!(osc::Union{OscillationParameters, NonunitaryOscillationParameters}, indices::Pair{T, T}, value::S) where {T <: Integer, S <: Number}
     fromidx = first(indices)
     toidx = last(indices)
     if fromidx < toidx
@@ -144,7 +167,7 @@ Set a mass squared difference of an oscillation parameters struct
 - `args::Tuple{Pair{<:Integer, <:Integer}, <:Number}`: Indices and values of the mass squared difference
 
 """
-function masssquareddiff!(osc::OscillationParameters, (args::Tuple{Pair{<:Integer, <:Integer}, <:Number})...)
+function masssquareddiff!(osc::Union{OscillationParameters, NonunitaryOscillationParameters}, (args::Tuple{Pair{<:Integer, <:Integer}, <:Number})...)
     for a in args
         masssquareddiff!(osc, first(a), last(a))
     end
@@ -189,7 +212,111 @@ function cpphase!(osc::OscillationParameters, (args::Tuple{Pair{T, T}, S})...) w
     end
 end
 
+
+function cpphase!(osc::NonunitaryOscillationParameters, indices::Tuple{T, T}, value::S) where {T <: Integer, S <: Real}
+    osc.cp_phases[indices[1], indices[2]] = value
+end
+
 const setδ! = cpphase!
+
+"""
+$(SIGNATURES)
+
+Set individual elements of the unitary mixing matrix
+
+# Arguments
+- `osc::NonunitaryOscillationParameters`: Oscillation parameters 
+- `indices::Tuple{<:Integer, <:Integer}`: The indices of mixing matrix
+- `value` The value which should be applied to the mixing matrix
+
+"""
+function elements!(osc::NonunitaryOscillationParameters, indices::Tuple{T, T}, value::S) where {T <: Integer, S <: Real}
+    osc.unitary_matrix_elements[indices[1], indices[2]] = value
+end
+
+const setelem! = elements!
+
+
+
+function calc_residuals_for_unknown_elements(x::Array{Float64, 1}, known_params::Array{Float64, 1})
+
+    e1, mu3, tau3, phi_e3 = known_params
+    e2, e3, mu1, mu2, tau1, tau2, phi_mu1, phi_mu2, phi_tau1, phi_tau2 = x
+
+    if phi_e3 != 0.
+        phi_mu1, phi_mu2, phi_tau1, phi_tau2 = mod2pi.([phi_mu1, phi_mu2, phi_tau1, phi_tau2])
+    else 
+        phi_mu1, phi_mu2, phi_tau1, phi_tau2 = zeros(4)
+    end
+
+    phi_e1, phi_e2, phi_mu3, phi_tau3 = zeros(4)
+
+
+    expr1 = e3^2 + mu3^2 + tau3^2 # = 1
+    expr2 = e2^2 + mu2^2 + tau2^2 # = 1
+    expr3 = e1^2 + mu1^2 + tau1^2 # = 1
+
+
+    expr4 = (e1*exp(-1im*phi_e1)*conj(e2*exp(-1im * phi_e2)) + mu1*exp(-1im*phi_mu1)*conj(mu2*exp(-1im*phi_mu2)) + tau1*exp(-1im*phi_tau1)*conj(tau2*exp(-1im*phi_tau2))) # = 0
+    expr5 = (e1*exp(-1im*phi_e1)*conj(e3*exp(-1im * phi_e3)) + mu1*exp(-1im*phi_mu1)*conj(mu3*exp(-1im*phi_mu3)) + tau1*exp(-1im*phi_tau1)*conj(tau3*exp(-1im*phi_tau3))) # = 0
+    expr6 = (e2*exp(-1im*phi_e2)*conj(e3*exp(-1im * phi_e3)) + mu2*exp(-1im*phi_mu2)*conj(mu3*exp(-1im*phi_mu3)) + tau2*exp(-1im*phi_tau2)*conj(tau3*exp(-1im*phi_tau3))) # = 0
+
+
+    residuals = [expr1 - 1., expr2 - 1., expr3 - 1., expr4, expr5, expr6]
+
+    residuals
+
+end
+
+
+function complete_to_unitary_matrix!(osc::NonunitaryOscillationParameters)
+
+"""
+    We require that U_t3, U_e1, and U_mu3 elements are provided and complete the PMNS matrix
+    to unitary based on these inputs.
+"""
+    dim = size(osc.unitary_matrix_elements)[1]
+    for i in 1:dim
+        for j in 1:dim 
+
+            if (i == 1 && j == 1) || (i == 2 && j == 3) || (i == 3 && j == 3)
+                @assert osc.unitary_matrix_elements[i, j] != 0. "A value for the element ($i, $j) was not set"
+            else 
+                @assert osc.unitary_matrix_elements[i, j] == 0. "A non-zero value for the matrix element other than U_e1, U_mu3, U_t3 was provided"
+            end
+        end
+    end
+
+    @assert (osc.unitary_matrix_elements[3, 3]^2 + osc.unitary_matrix_elements[2, 3]^3) < 1. "The normalization of the 3rd column exceeds 1"
+    @assert (abs(osc.unitary_matrix_elements[1, 1]) < 1.) "The magnitude of the U_e1 element exceeds 1"
+
+    e1, mu3, tau3 = osc.unitary_matrix_elements[1, 1], osc.unitary_matrix_elements[2, 3], osc.unitary_matrix_elements[3, 3]
+    phi_e3 = Real(osc.cp_phases[1, 3])
+
+    # Order of the unknown magnitudes: [e2, e3, mu1, mu2, tau1, tau2]
+    order_of_element_magnitudes = [(1, 2), (1, 3), (2, 1), (2, 2), (3, 1), (3, 2)]
+
+    # Order of the unknown phases: [phi_mu1, phi_mu2, phi_tau1, phi_tau2]
+    order_of_element_phases = [(2, 1), (2, 2), (3, 1), (3, 2)]
+
+    solver_func(x) = calc_residuals_for_unknown_elements(x, [e1, mu3, tau3, phi_e3])
+    solution = nlsolve(solver_func, [ones(6); zeros(4)]).zero
+
+    display(solution)
+
+    for n in 1:size(order_of_element_magnitudes)[1]
+        setelem!(osc, order_of_element_magnitudes[n], solution[n])
+
+    end
+
+    for m in 1:size(order_of_element_phases)[1]
+        a, b = order_of_element_phases[m]
+        phase_value = solution[size(solution)[1]-3:size(solution)[1]][m]
+        println("Setting delta $a, $b to $phase_value")
+        setδ!(osc, order_of_element_phases[m], phase_value)
+    end
+
+end
 
 function PMNSMatrix(osc_params::OscillationParameters; anti=false)
 """
@@ -227,7 +354,44 @@ Create rotation matrix (PMNS) based on the given oscillation parameters
     pmns
 end
 
-function Hamiltonian(osc_params::OscillationParameters)
+function PMNSMatrix(osc_params::NonunitaryOscillationParameters; anti=false)
+"""
+$(SIGNATURES)
+
+Create rotation matrix (PMNS) based on the provided unitary matrix elements (real),
+CP phases (up to 4 values applied to any 2x2 submatrix of PMNS), 
+and small corrections to unitarity given in the alpha-matrix (generally complex).
+
+# Arguments
+- `osc_params::NonunitaryOscillationParameters`: Oscillation parameters
+- `anti`: Is anti neutrino
+
+"""
+    dim = size(osc_params.unitary_matrix_elements)[1]
+
+    pmns = convert(Matrix{ComplexF64}, (I - osc_params.alphas) * osc_params.unitary_matrix_elements)
+
+    for i in 1:dim 
+        for j in 1:dim 
+
+            cp_phase = osc_params.cp_phases[i, j]
+            cp_term = exp(-1im * cp_phase)
+            if anti
+                cp_term = conj(cp_term)
+            end
+
+            pmns[i, j] *= cp_term
+        end
+    end
+
+    pmns
+
+
+end
+
+            
+
+function Hamiltonian(osc_params::Union{OscillationParameters, NonunitaryOscillationParameters})
 """
 $(SIGNATURES)
 
@@ -241,7 +405,7 @@ based on the given oscillation parameters
     Hamiltonian(osc_params, zeros(Float64, osc_params.dim))
 end 
 
-function Hamiltonian(osc_params::OscillationParameters, lambda)
+function Hamiltonian(osc_params::Union{OscillationParameters, NonunitaryOscillationParameters}, lambda)
 """
 $(SIGNATURES)
 

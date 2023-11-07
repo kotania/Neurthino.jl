@@ -8,11 +8,12 @@ using DocStringExtensions
 using LRUCache
 using LightGraphs
 using AxisArrays
+using NLsolve
 
 import Base
 
-export oscprob, Pνν, Pνν, OscillationParameters, PMNSMatrix, Hamiltonian, MatterOscillationMatrices
-export masssquareddiff!, setΔm²!, cpphase!, setδ!, mixingangle!, setθ!
+export oscprob, Pνν, Pνν, OscillationParameters, NonunitaryOscillationParameters, PMNSMatrix, Hamiltonian, MatterOscillationMatrices
+export masssquareddiff!, setΔm²!, cpphase!, setδ!, mixingangle!, setθ!, setelem!, complete_to_unitary_matrix!, calc_residuals_for_unknown_elements
 export cpphases, mixingangles
 
 export NeutrinoFlavour, Electron, Muon, Tau
