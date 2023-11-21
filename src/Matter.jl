@@ -79,8 +79,6 @@ function NUMatterOscillationMatrices(U, H, energy, density; zoa=0.5, anti=false)
         H_eff = U * Diagonal{ComplexF64}(H) * adjoint(U)
     end
 
-    H_eff = U * Diagonal{ComplexF64}(H) * adjoint(U)
-
     A = sqrt(2) * G_F * N_A * density
     # Neutron nucleon ratio: N/A = 1 - (Z/A)
     noa = 1 - zoa
@@ -100,7 +98,8 @@ function NUMatterOscillationMatrices(U, H, energy, density; zoa=0.5, anti=false)
 
     # Non-unitary matter potential
     A_eff = (U_Udag) * A_eff * (U_Udag)
-    H_eff -= A_eff
+
+    H_eff += A_eff
 
     tmp = eigen(H_eff)
     return tmp.vectors, tmp.values
