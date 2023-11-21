@@ -13,7 +13,7 @@ using NLsolve
 import Base
 
 export oscprob, Pνν, Pνν, OscillationParameters, NonunitaryOscillationParameters, PMNSMatrix, Hamiltonian, MatterOscillationMatrices
-export masssquareddiff!, setΔm²!, cpphase!, setδ!, mixingangle!, setθ!, setelem!, complete_to_unitary_matrix!, calc_residuals_for_unknown_elements
+export masssquareddiff!, setΔm²!, cpphase!, setδ!, mixingangle!, setθ!, setelem!, alphamatrix!, setα!, complete_to_unitary_matrix!, calc_residuals_for_unknown_elements, extend_dims
 export cpphases, mixingangles
 
 export NeutrinoFlavour, Electron, Muon, Tau

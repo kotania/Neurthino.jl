@@ -217,7 +217,12 @@ function cpphase!(osc::NonunitaryOscillationParameters, indices::Tuple{T, T}, va
     osc.cp_phases[indices[1], indices[2]] = value
 end
 
+function alphamatrix!(osc::NonunitaryOscillationParameters, indices::Tuple{T, T}, value::S) where {T <: Integer, S <: Real}
+    osc.alphas[indices[1], indices[2]] = value
+end
+
 const setδ! = cpphase!
+const setα! = alphamatrix!
 
 """
 $(SIGNATURES)
@@ -251,10 +256,20 @@ function calc_residuals_for_unknown_elements(x::Array{Float64, 1}, known_params:
 
     phi_e1, phi_e2, phi_mu3, phi_tau3 = zeros(4)
 
+    # TODO: why doesn't this work using direct matrix multiplication?
 
-    expr1 = e3^2 + mu3^2 + tau3^2 # = 1
-    expr2 = e2^2 + mu2^2 + tau2^2 # = 1
-    expr3 = e1^2 + mu1^2 + tau1^2 # = 1
+    # U = Matrix{ComplexF64}([abs(e1)*exp(-1im*phi_e1) abs(e2)*exp(-1im*phi_e2) abs(e3)*exp(-1im*phi_e3); 
+    #     abs(mu1)*exp(-1im*phi_mu1) abs(mu2)*exp(-1im*phi_mu2) abs(mu3)*exp(-1im*phi_mu3); 
+    #     abs(tau1)*exp(-1im*phi_tau1) abs(tau2)*exp(-1im*phi_tau2) abs(tau3)*exp(-1im*phi_tau3)])
+
+   
+    # U_Udag = U * adjoint(U)
+
+    # residuals = abs.(vec(U_Udag - I))
+
+    expr1 = (e3^2 + mu3^2 + tau3^2) # = 1
+    expr2 = (e2^2 + mu2^2 + tau2^2) # = 1
+    expr3 = (e1^2 + mu1^2 + tau1^2) # = 1
 
 
     expr4 = (e1*exp(-1im*phi_e1)*conj(e2*exp(-1im * phi_e2)) + mu1*exp(-1im*phi_mu1)*conj(mu2*exp(-1im*phi_mu2)) + tau1*exp(-1im*phi_tau1)*conj(tau2*exp(-1im*phi_tau2))) # = 0
@@ -262,7 +277,7 @@ function calc_residuals_for_unknown_elements(x::Array{Float64, 1}, known_params:
     expr6 = (e2*exp(-1im*phi_e2)*conj(e3*exp(-1im * phi_e3)) + mu2*exp(-1im*phi_mu2)*conj(mu3*exp(-1im*phi_mu3)) + tau2*exp(-1im*phi_tau2)*conj(tau3*exp(-1im*phi_tau3))) # = 0
 
 
-    residuals = [expr1 - 1., expr2 - 1., expr3 - 1., expr4, expr5, expr6]
+    residuals = [expr1 - 1., expr2 - 1., expr3 - 1., real(expr4), real(expr5), real(expr6), imag(expr4), imag(expr5), imag(expr6)]
 
     residuals
 
@@ -302,7 +317,7 @@ function complete_to_unitary_matrix!(osc::NonunitaryOscillationParameters)
     solver_func(x) = calc_residuals_for_unknown_elements(x, [e1, mu3, tau3, phi_e3])
     solution = nlsolve(solver_func, [ones(6); zeros(4)]).zero
 
-    display(solution)
+    #display(solution)
 
     for n in 1:size(order_of_element_magnitudes)[1]
         setelem!(osc, order_of_element_magnitudes[n], solution[n])
@@ -312,7 +327,7 @@ function complete_to_unitary_matrix!(osc::NonunitaryOscillationParameters)
     for m in 1:size(order_of_element_phases)[1]
         a, b = order_of_element_phases[m]
         phase_value = solution[size(solution)[1]-3:size(solution)[1]][m]
-        println("Setting delta $a, $b to $phase_value")
+        # println("Setting delta ($a, $b) to $phase_value")
         setδ!(osc, order_of_element_phases[m], phase_value)
     end
 
@@ -467,6 +482,20 @@ function oscprob(U, H, energy::Vector{T}, baseline::Vector{S}) where {T,S <: Rea
     P = reshape(hcat(collect(Iterators.flatten(tmp))), s...)
     P = permutedims(P, (3,4,1,2))
     flavrange = _make_flavour_range(first(size(U)))
+
+    # Account for the possibility of non-unitary mixing matrix by normalizing the states appropriately
+
+    U_Udag = abs.(U * adjoint(U))
+
+    norms = [U_Udag[1, 1]^2 U_Udag[1, 1] * U_Udag[2, 2] U_Udag[1, 1]*U_Udag[3, 3];
+            U_Udag[1, 1] * U_Udag[2, 2] U_Udag[2, 2]^2 U_Udag[2, 2]*U_Udag[3, 3];
+            U_Udag[1, 1] * U_Udag[3, 3] U_Udag[2, 2] * U_Udag[3, 3] U_Udag[3, 3]^2]
+
+    norms = extend_dims(extend_dims(norms, 1), 1)
+
+    P = P ./ norms
+
+
     AxisArray(P; Energy=energy, Baseline=baseline, InitFlav=flavrange, FinalFlav=flavrange)
 end
 
@@ -490,6 +519,15 @@ function oscprob(osc_params::OscillationParameters, energy, baseline; anti=false
     U = PMNSMatrix(osc_params; anti=anti)
     Pνν(U, H, energy, baseline)
 end
+
+
+function oscprob(osc_params::NonunitaryOscillationParameters, energy, baseline; anti=false)  
+    complete_to_unitary_matrix!(osc_params) 
+    H = Hamiltonian(osc_params)
+    U = PMNSMatrix(osc_params; anti=anti)
+    Pνν(U, H, energy, baseline)
+end
+
 
 const Pνν = oscprob
 
