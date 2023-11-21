@@ -190,8 +190,9 @@ function nu_oscprob(U, H, energy::Vector{T}, path::Vector{Path}; zoa=0.5, anti=f
             tmp = Matrix{ComplexF64}(1I, size(U))
             for (m,b) in enumerate(p.baseline)
                 @inbounds ρ = p.density[m]
+                @inbounds z = zoa[l][m]
                 U_mat, H_mat = get!(lru, (E, ρ)) do
-                    NUMatterOscillationMatrices(copy(U), copy(H), E, ρ; zoa=zoa, anti=anti)
+                    NUMatterOscillationMatrices(copy(U), copy(H), E, ρ; zoa=z, anti=anti)
                 end  
                 tmp *= Neurthino._oscprobampl(U_mat, H_mat, E, b)
             end
