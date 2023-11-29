@@ -454,6 +454,13 @@ function _oscprobampl(U, H, energy, baseline)
     U * exp(1im * H_diag) * adjoint(U)
 end
 
+
+function _nuoscprobampl(U, H, energy, baseline)  
+   
+    H_exp = 2.5338653580781976 * H * baseline / energy
+    U * exp(-1im * H_exp) * adjoint(U)
+end
+
 function _make_flavour_range(size::Integer)
     if size <= 3
         return NeutrinoFlavour.(1:size)
@@ -482,18 +489,6 @@ function oscprob(U, H, energy::Vector{T}, baseline::Vector{S}) where {T,S <: Rea
     P = reshape(hcat(collect(Iterators.flatten(tmp))), s...)
     P = permutedims(P, (3,4,1,2))
     flavrange = _make_flavour_range(first(size(U)))
-
-    # Account for the possibility of non-unitary mixing matrix by normalizing the states appropriately
-
-    U_Udag = abs.(U * adjoint(U))
-
-    norms = [U_Udag[1, 1]^2 U_Udag[1, 1] * U_Udag[2, 2] U_Udag[1, 1]*U_Udag[3, 3];
-            U_Udag[1, 1] * U_Udag[2, 2] U_Udag[2, 2]^2 U_Udag[2, 2]*U_Udag[3, 3];
-            U_Udag[1, 1] * U_Udag[3, 3] U_Udag[2, 2] * U_Udag[3, 3] U_Udag[3, 3]^2]
-
-    norms = extend_dims(extend_dims(norms, 1), 1)
-
-    P = P ./ norms
 
 
     AxisArray(P; Energy=energy, Baseline=baseline, InitFlav=flavrange, FinalFlav=flavrange)
