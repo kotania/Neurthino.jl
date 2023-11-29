@@ -243,7 +243,7 @@ function nu_oscprob(U, H, energy::Vector{T}, path::Vector{Path}; zoa=0.5, anti=f
                 norm_prob = Neurthino._nuoscprobampl(U_mat, H_mat, E, b)
 
                 for mdim in 1:3
-                    norm_prob[mdim, :] = norm_prob[mdim, :]  ./ norms[mdim, :]
+                    norm_prob[mdim, :] = norm_prob[mdim, :]  .* norms[mdim, :]
                 end
 
                 tmp *= norm_prob
