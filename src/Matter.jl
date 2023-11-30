@@ -189,12 +189,15 @@ function nu_oscprob(U, H, energy::Vector{T}, path::Vector{Path}; zoa=0.5, anti=f
             U_Udag[2, 2]*U_Udag[1, 1] U_Udag[2, 2]^2 U_Udag[2, 2]*U_Udag[3, 3];
             U_Udag[3, 3]*U_Udag[1, 1] U_Udag[3, 3]*U_Udag[2, 2] U_Udag[3, 3]^2]
 
+
+    norm_correction = ones(size(norms))
+
     #...however, this is subject to corrections if the Standard Model prediction is used for the flux, which is already equal to the actual NU-contaminated flux / NN†
 
     if sm_flux
 
         # Here we correct the normalizations of the initial flavour (i.e. applying (NN†)_{aa} to rows)
-        norms = norms .* [U_Udag[1, 1] U_Udag[1, 1] U_Udag[1, 1];
+        norm_correction = norm_correction .* [U_Udag[1, 1] U_Udag[1, 1] U_Udag[1, 1];
                           U_Udag[2, 2] U_Udag[2, 2] U_Udag[2, 2];
                           U_Udag[3, 3] U_Udag[3, 3] U_Udag[3, 3]]
 
@@ -209,7 +212,7 @@ function nu_oscprob(U, H, energy::Vector{T}, path::Vector{Path}; zoa=0.5, anti=f
 
         if detection_channel == "cc"
 
-            norms = norms .* [U_Udag[1, 1] U_Udag[2, 2] U_Udag[3, 3];
+            norm_correction = norm_correction .* [U_Udag[1, 1] U_Udag[2, 2] U_Udag[3, 3];
                 U_Udag[1, 1] U_Udag[2, 2] U_Udag[3, 3];
                 U_Udag[1, 1] U_Udag[2, 2] U_Udag[3, 3]]
 
@@ -221,9 +224,6 @@ function nu_oscprob(U, H, energy::Vector{T}, path::Vector{Path}; zoa=0.5, anti=f
 
     end 
     
-    # Take the square root because we will apply these normalizations to the amplitudes and square the amplitudes later on
-    norms = sqrt.(norms)
-
     energy = convert.(Float64, energy)
     
     A = zeros(ComplexF64, length(energy), length(path), size(U)...)
@@ -240,18 +240,16 @@ function nu_oscprob(U, H, energy::Vector{T}, path::Vector{Path}; zoa=0.5, anti=f
                 U_mat, H_mat = get!(lru, (E, ρ)) do
                     NUMatterOscillationMatrices(copy(U), copy(H), E, ρ; zoa=z, anti=anti)
                 end  
-                norm_prob = Neurthino._nuoscprobampl(U_mat, H_mat, E, b)
+                prob = Neurthino._nuoscprobampl(U_mat, H_mat, E, b)
 
-                for mdim in 1:3
-                    norm_prob[mdim, :] = norm_prob[mdim, :]  .* norms[mdim, :]
-                end
-
-                tmp *= norm_prob
+                tmp *= prob
             end
-            @inbounds A[k, l,  :, :] = transpose(tmp)        
+            @inbounds A[k, l,  :,  :] = transpose(tmp)        
         end
     end
-    P = map(x -> abs.(x) .^ 2, A)
+    P =  map(x -> abs.(x) .^ 2, A) 
+    
+    P = map(x -> abs.(x) .^ 2, A) .* extend_dims(extend_dims(norm_correction .* norms, 1), 1)
     flavrange = _make_flavour_range(first(size(U)))
 
     
