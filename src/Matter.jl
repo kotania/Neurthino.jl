@@ -242,13 +242,13 @@ function nu_oscprob(U, H, energy::Vector{T}, path::Vector{Path}; zoa=0.5, anti=f
                 end  
 
                 if (m == 1) & (length(p.baseline) == 1)
-                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, first_layer=true, last_layer=true)
+                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, true, true)
                 elseif (m == 1) && (length(p.baseline) != 1)
-                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, first_layer=true, last_layer=false)
+                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, true, false)
                 elseif (m != 1) && (m == length(p.baseline)) 
-                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, first_layer=false, last_layer=true)
+                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, false, true)
                 else
-                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, first_layer=false, last_layer=false)
+                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, false, false)
                 end
 
                 tmp *= ampl
