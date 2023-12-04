@@ -240,15 +240,23 @@ function nu_oscprob(U, H, energy::Vector{T}, path::Vector{Path}; zoa=0.5, anti=f
                 U_mat, H_mat = get!(lru, (E, ρ)) do
                     NUMatterOscillationMatrices(copy(U), copy(H), E, ρ; zoa=z, anti=anti)
                 end  
-                prob = Neurthino._nuoscprobampl(U_mat, H_mat, E, b)
 
-                tmp *= prob
+                if (m == 1) & (length(p.baseline) == 1)
+                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, first_layer=true, last_layer=true)
+                elseif (m == 1) && (length(p.baseline) != 1)
+                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, first_layer=true, last_layer=false)
+                elseif (m != 1) && (m == length(p.baseline)) 
+                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, first_layer=false, last_layer=true)
+                else
+                    ampl = Neurthino._nuoscprobampl(U_mat, H_mat, E, b, first_layer=false, last_layer=false)
+                end
+
+                tmp *= ampl
             end
             @inbounds A[k, l,  :,  :] = transpose(tmp)        
         end
     end
-    P =  map(x -> abs.(x) .^ 2, A) 
-    
+
     P = map(x -> abs.(x) .^ 2, A) .* extend_dims(extend_dims(norm_correction .* norms, 1), 1)
     flavrange = _make_flavour_range(first(size(U)))
 

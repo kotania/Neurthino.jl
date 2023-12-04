@@ -455,10 +455,18 @@ function _oscprobampl(U, H, energy, baseline)
 end
 
 
-function _nuoscprobampl(U, H, energy, baseline)  
+function _nuoscprobampl(U, H, energy, baseline, first_layer, last_layer)  
    
     H_exp = 2.5338653580781976 * H * baseline / energy
-    U * exp(-1im * H_exp) * adjoint(U)
+    if first_layer && last_layer 
+        U * exp(-1im * H_exp) * adjoint(U)
+    elseif first_layer && (!last_layer)
+        U * exp(-1im * H_exp)
+    elseif last_layer && (!first_layer)
+        exp(-1im * H_exp) * adjoint(U)
+    elseif (!first_layer) && (!last_layer)
+        exp(-1im * H_exp) 
+    end
 end
 
 function _make_flavour_range(size::Integer)
