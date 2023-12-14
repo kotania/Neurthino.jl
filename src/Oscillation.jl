@@ -26,15 +26,13 @@ struct NonunitaryOscillationParameters{T}
     rather than parametrizing it via a product of 3 rotation matrices.
 
 """
-    unitary_matrix_elements::Array{Float64, 2}
-    alphas::Array{Float64, 2}
+    nonunitary_matrix_elements::Array{ComplexF64, 2}
     mass_squared_diff::SparseMatrixCSC{T,<:Integer}
     cp_phases::SparseMatrixCSC{T,<:Integer}
     dim::Int64
     NonunitaryOscillationParameters(dim::Int64) = begin
         new{ComplexF64}(
-                zeros.(Float64, dim, dim),
-                zeros.(Float64, dim, dim),
+                zeros.(ComplexF64, dim, dim),
                 spzeros(dim, dim),
                 spzeros(dim, dim),
                 dim)
@@ -217,12 +215,8 @@ function cpphase!(osc::NonunitaryOscillationParameters, indices::Tuple{T, T}, va
     osc.cp_phases[indices[1], indices[2]] = value
 end
 
-function alphamatrix!(osc::NonunitaryOscillationParameters, indices::Tuple{T, T}, value::S) where {T <: Integer, S <: Real}
-    osc.alphas[indices[1], indices[2]] = value
-end
 
 const setδ! = cpphase!
-const setα! = alphamatrix!
 
 """
 $(SIGNATURES)
@@ -235,8 +229,8 @@ Set individual elements of the unitary mixing matrix
 - `value` The value which should be applied to the mixing matrix
 
 """
-function elements!(osc::NonunitaryOscillationParameters, indices::Tuple{T, T}, value::S) where {T <: Integer, S <: Real}
-    osc.unitary_matrix_elements[indices[1], indices[2]] = value
+function elements!(osc::NonunitaryOscillationParameters, indices::Tuple{T, T}, value::S) where {T <: Integer, S <: Complex}
+    osc.nonunitary_matrix_elements[indices[1], indices[2]] = value
 end
 
 const setelem! = elements!
@@ -382,22 +376,9 @@ and small corrections to unitarity given in the alpha-matrix (generally complex)
 - `anti`: Is anti neutrino
 
 """
-    dim = size(osc_params.unitary_matrix_elements)[1]
+    dim = size(osc_params.nonunitary_matrix_elements)[1]
 
-    pmns = convert(Matrix{ComplexF64}, (I - osc_params.alphas) * osc_params.unitary_matrix_elements)
-
-    for i in 1:dim 
-        for j in 1:dim 
-
-            cp_phase = osc_params.cp_phases[i, j]
-            cp_term = exp(-1im * cp_phase)
-            if anti
-                cp_term = conj(cp_term)
-            end
-
-            pmns[i, j] *= cp_term
-        end
-    end
+    pmns = convert(Matrix{ComplexF64}, osc_params.nonunitary_matrix_elements)
 
     pmns
 
@@ -523,13 +504,6 @@ function oscprob(osc_params::OscillationParameters, energy, baseline; anti=false
     Pνν(U, H, energy, baseline)
 end
 
-
-function oscprob(osc_params::NonunitaryOscillationParameters, energy, baseline; anti=false)  
-    complete_to_unitary_matrix!(osc_params) 
-    H = Hamiltonian(osc_params)
-    U = PMNSMatrix(osc_params; anti=anti)
-    Pνν(U, H, energy, baseline)
-end
 
 
 const Pνν = oscprob
