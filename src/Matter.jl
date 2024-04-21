@@ -206,7 +206,7 @@ function nu_oscprob(U, H, energy::Vector{T}, path::Vector{Path}; zoa=0.5, anti=f
 
     end 
 
-    #If the Standard Model prediction is used for the cross section, a similar correction is needed for the final flavour -> applying NN†_{bb} factors to columns
+    #If the Standard Model prediction is used for the cross section, a similar correction is needed for the final flavour -> applying NN†_{bb} factors to rows
 
     if sm_xsec
 
