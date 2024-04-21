@@ -196,10 +196,13 @@ function nu_oscprob(U, H, energy::Vector{T}, path::Vector{Path}; zoa=0.5, anti=f
 
     if sm_flux
 
-        # Here we correct the normalizations of the initial flavour (i.e. applying (NN†)_{aa} to rows)
-        norm_correction = norm_correction .* [U_Udag[1, 1] U_Udag[1, 1] U_Udag[1, 1];
-                          U_Udag[2, 2] U_Udag[2, 2] U_Udag[2, 2];
-                          U_Udag[3, 3] U_Udag[3, 3] U_Udag[3, 3]]
+        # Here we correct the normalizations of the initial flavour (i.e. applying (NN†)_{aa} to columns)
+        norm_correction = norm_correction .* [U_Udag[1, 1] U_Udag[2, 2] U_Udag[3, 3];
+                U_Udag[1, 1] U_Udag[2, 2] U_Udag[3, 3];
+                U_Udag[1, 1] U_Udag[2, 2] U_Udag[3, 3]]
+
+
+        
 
     end 
 
@@ -212,15 +215,14 @@ function nu_oscprob(U, H, energy::Vector{T}, path::Vector{Path}; zoa=0.5, anti=f
 
         if detection_channel == "cc"
 
-            norm_correction = norm_correction .* [U_Udag[1, 1] U_Udag[2, 2] U_Udag[3, 3];
-                U_Udag[1, 1] U_Udag[2, 2] U_Udag[3, 3];
-                U_Udag[1, 1] U_Udag[2, 2] U_Udag[3, 3]]
+            norm_correction = norm_correction .* [U_Udag[1, 1] U_Udag[1, 1] U_Udag[1, 1];
+                          U_Udag[2, 2] U_Udag[2, 2] U_Udag[2, 2];
+                          U_Udag[3, 3] U_Udag[3, 3] U_Udag[3, 3]]
 
         end
 
         # DeepCore could also detect neutrinos via the NC channel, but we do not apply NC correction because there is already a systematic for NC scale in DeepCore.
-        # Whether DeepCore uses "Standard Model" or "nonunitarity-contaminated" cross sections is subject to debate, but a small correction to the cross section
-        # is likely to be absorbed in the systematic uncertainties.
+        # Whether DeepCore uses "Standard Model" or "nonunitarity-contaminated" cross sections is subject to debate.
 
     end 
     
